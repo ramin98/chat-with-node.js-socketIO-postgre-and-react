@@ -14,16 +14,30 @@ const ChatWindow = ({ array }) => {
   const [message1, setMessage1] = useState("");
   const [uploadFile, setUploadFile] = useState({});
   const [photosArray, setPhotosArray] = useState([]);
-  let mediaGrid = useRef(null)
 
-  let arr = []
+  const [mediaRecorder, setMediaRecorder] = useState(null);
+  const [audioChunks, setAudioChunks] = useState([]);
+  const [audioUrl, setAudioUrl] = useState("");
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState(null);
+  let mediaGrid = useRef(null);
+
+  let arr = [];
   history.forEach((item) => {
-    if(item.photos.length !== 0){
-      arr.push(item.photos)
+    if (item.photos.length !== 0) {
+      arr.push(item.photos);
     }
-  })
+  });
 
-  console.log(`grid-template-areas: ${arr.map((itemMedia,index) => index === 0 ? itemMedia = "'first first'" : itemMedia = "'other other'").join(' ')}`)
+  console.log(
+    `grid-template-areas: ${arr
+      .map((itemMedia, index) =>
+        index === 0
+          ? (itemMedia = "'first first'")
+          : (itemMedia = "'other other'")
+      )
+      .join(" ")}`
+  );
 
   const socketRef = useRef();
 
@@ -33,9 +47,8 @@ const ChatWindow = ({ array }) => {
     socketRef.current.on("chat history", function (history) {
       setHistory(history);
     });
-    console.log(history)
-   
-    
+    console.log(history);
+
     return () => {
       socketRef.current.disconnect();
     };
@@ -53,67 +66,69 @@ const ChatWindow = ({ array }) => {
       });
     }
   }, [chatId]);
-  console.log(mediaGrid.current)
-
+  console.log(mediaGrid.current);
 
   const inputFile = useRef(null);
   const inputFileMedia = useRef(null);
 
-    const handleResetMedia = () => {
-        if (inputFileMedia.current) {
-          inputFileMedia.current.value = "";
-          inputFileMedia.current.type = "file";
-        }
-    };
+  const handleResetMedia = () => {
+    if (inputFileMedia.current) {
+      inputFileMedia.current.value = "";
+      inputFileMedia.current.type = "file";
+    }
+  };
 
-    const handleResetFile = () => {
-      if (inputFile.current) {
-          inputFile.current.value = "";
-          inputFile.current.type = "file";
-      }
+  const handleResetFile = () => {
+    if (inputFile.current) {
+      inputFile.current.value = "";
+      inputFile.current.type = "file";
+    }
   };
   const handleMediaUpload = async (event) => {
     const files = event.target.files;
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      console.log(file)
+      console.log(file);
       const formData = new FormData();
       const reader = new FileReader();
 
-      if(file.type.split('/')[0] === 'video'){
-        console.log(file.type.split('/')[0])
-        formData.append('photos', file);
+      if (file.type.split("/")[0] === "video") {
+        console.log(file.type.split("/")[0]);
+        formData.append("photos", file);
         try {
-          const response = await axios.post('http://localhost:3000/upload-media', formData, {
-            headers: {
-              'Content-Type': 'multipart/form-data'
+          const response = await axios.post(
+            "http://localhost:3000/upload-media",
+            formData,
+            {
+              headers: {
+                "Content-Type": "multipart/form-data",
+              },
             }
-          });
-  
-          let data  = await response.data
-          
-          setPhotosArray(prev => ([...prev,...data]));
+          );
+
+          let data = await response.data;
+
+          setPhotosArray((prev) => [...prev, ...data]);
         } catch (error) {
-          console.error('Error uploading file:', error);
+          console.error("Error uploading file:", error);
         }
-      }
-      else{
-        console.log(file.type.split('/')[0])
+      } else {
+        console.log(file.type.split("/")[0]);
 
         reader.onload = (e) => {
-
-        setPhotosArray(prev => ([...prev,{
-            fileByte : e.target.result.split(",")[1],
-            fileType: file.type,
-            fileName: file.name,
-        }]))
-        }
+          setPhotosArray((prev) => [
+            ...prev,
+            {
+              fileByte: e.target.result.split(",")[1],
+              fileType: file.type,
+              fileName: file.name,
+            },
+          ]);
+        };
 
         reader.readAsDataURL(file);
-
       }
-      }
-
+    }
   };
 
   const handleFileUpload = async (event) => {
@@ -121,21 +136,83 @@ const ChatWindow = ({ array }) => {
     const file = files[0];
 
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append("file", file);
 
     try {
-      const response = await axios.post('http://localhost:3000/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
+      const response = await axios.post(
+        "http://localhost:3000/upload",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
         }
-      });
+      );
 
       setUploadFile({
         nameoffile: response.data.file.filename,
-        file: file
+        file: file,
       });
     } catch (error) {
-      console.error('Error uploading file:', error);
+      console.error("Error uploading file:", error);
+    }
+  };
+
+  const startRecording = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const recorder = new MediaRecorder(stream);
+    recorder.start();
+
+    setAudioChunks([]);
+    recorder.addEventListener("dataavailable", (event) => {
+      setAudioChunks((prev) => [...prev, event.data]);
+    });
+
+    recorder.addEventListener("stop", () => {
+      const blob = new Blob(audioChunks, { type: "audio/wav" });
+      const url = URL.createObjectURL(blob);
+      setAudioUrl(url);
+      setAudioBlob(blob);
+    });
+
+    setMediaRecorder(recorder);
+    setIsRecording(true);
+  };
+
+  const stopRecording = () => {
+    mediaRecorder.stop();
+    setIsRecording(false);
+  };
+
+  const sendAudio = async (event) => {
+    if (audioBlob) {
+      const formData = new FormData();
+      let randomText = "QWERTYUIOPASDFGHJKLZXCVBNM123456789";
+      let fileText = "";
+      for (let index = 0; index < 12; index++) {
+        const element =
+          randomText[Math.floor(Math.random() * randomText.length)];
+        fileText += element;
+      }
+      formData.append("music", audioBlob, fileText + ".wav");
+
+      try {
+        const response = await fetch("http://localhost:3000/voice", {
+          method: "POST",
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+          body: formData,
+        });
+        console.log(response.data);
+        console.log();
+        setAudioUrl("");
+        setAudioBlob(null);
+        setAudioChunks([]);
+        alert("Audio uploaded successfully!");
+      } catch (error) {
+        console.error("Error uploading audio:", error);
+      }
     }
   };
 
@@ -148,18 +225,17 @@ const ChatWindow = ({ array }) => {
       usersecond: chatId,
       file: uploadFile,
       nameoffile: uploadFile.nameoffile,
-      photos:photosArray
+      photos: photosArray,
     };
-    console.log('Sending message:', obj);
+    console.log("Sending message:", obj);
     socketRef.current.emit("chat message", obj);
     setHistory((prevState) => [...prevState, obj]);
     setMessage1("");
     setUploadFile({});
-    handleResetMedia()
-    handleResetFile()
-
-    setPhotosArray([])
-
+    handleResetMedia();
+    handleResetFile();
+    sendAudio();
+    setPhotosArray([]);
   };
 
   const onEmojiClick = (event, emojiObject) => {
@@ -182,6 +258,7 @@ const ChatWindow = ({ array }) => {
             />
           </video>
         )}
+        {}
       </li>
     ));
     return (
@@ -209,7 +286,8 @@ const ChatWindow = ({ array }) => {
               {msg.message}
             </span>
           )}
-          {msg.nameoffile && (
+
+          {msg.nameoffile &&  (
             <a
               className={
                 msg.fromuser === me.name
@@ -220,14 +298,10 @@ const ChatWindow = ({ array }) => {
             >
               {msg.nameoffile}
             </a>
-          )}
+          ) 
+          }
         </div>
-        {photos.length > 0 && (
-  <ul
-  >
-    {photos}
-  </ul>
-)}
+        {photos.length > 0 && <ul>{photos}</ul>}
       </li>
     );
   };
@@ -255,6 +329,14 @@ const ChatWindow = ({ array }) => {
           <button type="submit"></button>
         </form>
         <button onClick={() => setEmojiModal(!emojiModal)} id="emoji"></button>
+        <div>
+          {!isRecording && (
+            <button onClick={startRecording}>Start Recording</button>
+          )}
+          {isRecording && (
+            <button onClick={stopRecording}>Stop Recording</button>
+          )}
+        </div>
       </div>
       {emojiModal && <Picker onEmojiClick={onEmojiClick} />}
     </div>
@@ -262,4 +344,3 @@ const ChatWindow = ({ array }) => {
 };
 
 export default ChatWindow;
-``
