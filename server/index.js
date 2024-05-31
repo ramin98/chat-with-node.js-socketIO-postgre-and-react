@@ -12,7 +12,7 @@ const server = http.createServer(app);
 const io = socketIO(server, {
   cors: {
     origin: "http://localhost:5173",
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST","PUT"],
     allowedHeaders: ["Content-Type"],
     credentials: true
   }
@@ -20,45 +20,49 @@ const io = socketIO(server, {
 
 app.use(cors({
   origin: "http://localhost:5173",
-  methods: ["GET", "POST"],
+  methods: ["GET", "POST","PUT"],
   allowedHeaders: ["Content-Type"],
   credentials: true
 }));
 
-app.use(bodyParser.json({ limit: '100mb' }));
-app.use(bodyParser.urlencoded({ limit: '100mb', extended: true }));
+app.use(bodyParser.json({ limit: '200mb' }));
+app.use(bodyParser.urlencoded({ limit: '200mb', extended: true }));
 app.use(express.static(__dirname + "/public"));
 
 const storage = multer.diskStorage({
   destination: function(req, file, cb) {
-    console.log(file, 'load')
-      cb(null, './public/upload-folder/') 
+    cb(null, './public/upload-folder/');
   },
   filename: function(req, file, cb) {
-      cb(null, file.originalname) 
+    
+    cb(null, file.originalname);
   }
 });
 
-
-const upload = multer({ storage: storage });
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 200 * 1024 * 1024 } // 200MB limit
+});
 
 app.post('/upload', upload.single('file'), (req, res) => {
-  console.log(req.file, '/upload')
+  res.json({ file: req.file });
+});
 
+app.post('/voice-add', upload.single('audio'), (req, res) => {
   res.json({ file: req.file });
 });
 
 app.post('/upload-media', upload.array('photos'), (req, res) => {
-  let mediaArray = []
-  console.log(req.files)
+  let mediaArray = [];
+  console.log(req.files);
   req.files.forEach((item) => {
         if(item.mimetype.split('/')[0] === 'video'){
           mediaArray.push({
             fileType: item.mimetype,
             fileName: item.originalname,
-          })
+          });
         }
-  })
+  });
   res.json(mediaArray);
 });
 
@@ -93,6 +97,7 @@ io.on("connection", (socket) => {
             fromuser VARCHAR(100) NOT NULL,
             photos JSONB,
             nameoffile TEXT,
+            voice TEXT,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
           );`,
       (err, res) => {
