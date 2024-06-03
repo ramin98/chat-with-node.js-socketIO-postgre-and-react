@@ -129,7 +129,7 @@ io.on("connection", (socket) => {
 
     pool.query(
       `INSERT INTO ${msg.userfirst}and${msg.usersecond} (message, fromuser, photos, nameoffile,voice) VALUES ($1, $2, $3, $4,$5) RETURNING *`,
-      [msg.message, msg.fromuser, JSON.stringify(msg.photos), msg.file ? msg.file.nameoffile : null, msg.voice.filename],
+      [msg.message, msg.fromuser, JSON.stringify(msg.photos), msg.file ? msg.file.nameoffile : null,msg.voice ? msg.voice.filename : null],
       (err, res) => {
         if (err) {
           console.error('Error inserting message:', err);
