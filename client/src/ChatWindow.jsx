@@ -149,6 +149,7 @@ const ChatWindow = ({ array }) => {
     recorder.addEventListener("dataavailable", (event) => {
       setAudioChunks((prev) => [...prev, event.data]);
     });
+    console.log(audioChunks)
 
     recorder.addEventListener("stop", () => {
       const blob = new Blob(audioChunks, { type: "audio/wav" });
@@ -163,10 +164,15 @@ const ChatWindow = ({ array }) => {
 
   const stopRecording = () => {
     mediaRecorder.stop();
+    console.log(audioChunks)
+    console.log(audioBlob)
     setIsRecording(false);
   };
 
   const sendAudio = async () => {
+    console.log(audioChunks)
+    console.log(audioBlob)
+
     if (audioBlob) {
       const formData = new FormData();
       let randomText = "QWERTYUIOPASDFGHJKLZXCVBNM123456789";
@@ -190,7 +196,7 @@ const ChatWindow = ({ array }) => {
           }
         );
         console.log("Voice upload response:", response.data);
-        return response.data.file;
+        return response.data.file.filename;
       } catch (error) {
         console.error("Error uploading audio:", error);
         return null;
@@ -289,7 +295,7 @@ const ChatWindow = ({ array }) => {
           )}
           {msg.voice && (
             <audio controls>
-              <source src={`http://localhost:3000/upload-folder/${msg.voice.filename}`} />
+              <source src={`http://localhost:3000/upload-folder/${msg.voice}`} />
             </audio>
           )}
         </div>
