@@ -13,31 +13,13 @@ const ChatWindow = ({ array }) => {
   const [emojiModal, setEmojiModal] = useState(false);
   const [message1, setMessage1] = useState("");
   const [uploadFile, setUploadFile] = useState({});
+  const [uploadVoice, setUploadVoice] = useState({});
   const [photosArray, setPhotosArray] = useState([]);
-
   const [mediaRecorder, setMediaRecorder] = useState(null);
   const [audioChunks, setAudioChunks] = useState([]);
   const [audioUrl, setAudioUrl] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState(null);
-  let mediaGrid = useRef(null);
-
-  let arr = [];
-  history.forEach((item) => {
-    if (item.photos.length !== 0) {
-      arr.push(item.photos);
-    }
-  });
-
-  console.log(
-    `grid-template-areas: ${arr
-      .map((itemMedia, index) =>
-        index === 0
-          ? (itemMedia = "'first first'")
-          : (itemMedia = "'other other'")
-      )
-      .join(" ")}`
-  );
 
   const socketRef = useRef();
 
@@ -66,7 +48,6 @@ const ChatWindow = ({ array }) => {
       });
     }
   }, [chatId]);
-  console.log(mediaGrid.current);
 
   const inputFile = useRef(null);
   const inputFileMedia = useRef(null);
@@ -84,6 +65,7 @@ const ChatWindow = ({ array }) => {
       inputFile.current.type = "file";
     }
   };
+
   const handleMediaUpload = async (event) => {
     const files = event.target.files;
     for (let i = 0; i < files.length; i++) {
@@ -184,7 +166,7 @@ const ChatWindow = ({ array }) => {
     setIsRecording(false);
   };
 
-  const sendAudio = async (event) => {
+  const sendAudio = async () => {
     if (audioBlob) {
       const formData = new FormData();
       let randomText = "QWERTYUIOPASDFGHJKLZXCVBNM123456789";
@@ -194,30 +176,35 @@ const ChatWindow = ({ array }) => {
           randomText[Math.floor(Math.random() * randomText.length)];
         fileText += element;
       }
-      formData.append("music", audioBlob, fileText + ".wav");
+
+      formData.append("audio", audioBlob, fileText + ".wav");
 
       try {
-        const response = await fetch("http://localhost:3000/voice", {
-          method: "POST",
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-          body: formData,
-        });
-        console.log(response.data);
-        console.log();
-        setAudioUrl("");
-        setAudioBlob(null);
-        setAudioChunks([]);
-        alert("Audio uploaded successfully!");
+        const response = await axios.post(
+          "http://localhost:3000/voice-add",
+          formData,
+          {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
+        console.log("Voice upload response:", response.data);
+        return response.data.file.filename;
       } catch (error) {
         console.error("Error uploading audio:", error);
+        return null;
       }
     }
+    return null;
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
+
+    const voiceFileName = await sendAudio();
+    console.log("Uploaded voice file name:", voiceFileName);
+    
     const obj = {
       message: message1,
       fromuser: me.name,
@@ -226,7 +213,9 @@ const ChatWindow = ({ array }) => {
       file: uploadFile,
       nameoffile: uploadFile.nameoffile,
       photos: photosArray,
+      voice: voiceFileName,
     };
+
     console.log("Sending message:", obj);
     socketRef.current.emit("chat message", obj);
     setHistory((prevState) => [...prevState, obj]);
@@ -234,7 +223,6 @@ const ChatWindow = ({ array }) => {
     setUploadFile({});
     handleResetMedia();
     handleResetFile();
-    sendAudio();
     setPhotosArray([]);
   };
 
@@ -287,7 +275,7 @@ const ChatWindow = ({ array }) => {
             </span>
           )}
 
-          {msg.nameoffile &&  (
+          {msg.nameoffile && (
             <a
               className={
                 msg.fromuser === me.name
@@ -298,8 +286,12 @@ const ChatWindow = ({ array }) => {
             >
               {msg.nameoffile}
             </a>
-          ) 
-          }
+          )}
+          {msg.voice && (
+            <audio controls>
+              <source src={`http://localhost:3000/upload-folder/${msg.voice}`} />
+            </audio>
+          )}
         </div>
         {photos.length > 0 && <ul>{photos}</ul>}
       </li>
