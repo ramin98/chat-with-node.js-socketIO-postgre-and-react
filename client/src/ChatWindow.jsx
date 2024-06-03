@@ -190,7 +190,7 @@ const ChatWindow = ({ array }) => {
           }
         );
         console.log("Voice upload response:", response.data);
-        return response.data.file.filename;
+        return response.data.file;
       } catch (error) {
         console.error("Error uploading audio:", error);
         return null;
@@ -289,7 +289,7 @@ const ChatWindow = ({ array }) => {
           )}
           {msg.voice && (
             <audio controls>
-              <source src={`http://localhost:3000/upload-folder/${msg.voice}`} />
+              <source src={`http://localhost:3000/upload-folder/${msg.voice.filename}`} />
             </audio>
           )}
         </div>
@@ -323,10 +323,10 @@ const ChatWindow = ({ array }) => {
         <button onClick={() => setEmojiModal(!emojiModal)} id="emoji"></button>
         <div>
           {!isRecording && (
-            <button onClick={startRecording}>Start Recording</button>
+            <button className="start-audio" onClick={startRecording}></button>
           )}
           {isRecording && (
-            <button onClick={stopRecording}>Stop Recording</button>
+            <button className="stop-audio" onClick={stopRecording}></button>
           )}
         </div>
       </div>
